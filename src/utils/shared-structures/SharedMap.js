@@ -61,6 +61,19 @@ class SharedMap {
         return this.index.toString();
     }
 
+    static serialize(sharedMap) {
+        return {
+            buffer: sharedMap.buffer,
+            maxItems: sharedMap.maxItems
+        }
+    }
+
+    static deserialize(serialized) {
+        const { buffer, maxItems } = serialized;
+
+        return new SharedMap(maxItems, buffer)
+    }
+
     isValidKey(key) {
         return this.index[key] !== undefined;
     }

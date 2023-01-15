@@ -90,6 +90,39 @@ class SharedHashMap {
         }), {}))
     }
 
+    static serialize(sharedHashMap) {
+        return {
+            map: SharedLinkedList.serialize(sharedHashMap.map),
+            index: SharedMap.serialize(sharedHashMap.index),
+            keys: SharedByteArray.serialize(sharedHashMap.keys),
+            items: SharedByteArray.serialize(sharedHashMap.items),
+            maxItems: sharedHashMap.maxItems,
+            averageKeySize: sharedHashMap.averageKeySize,
+            averageItemSize: sharedHashMap.averageItemSize,
+            keyEncoding: sharedHashMap.keyEncoding
+        }
+    }
+
+    static deserialize(serialized) {
+        const {
+            map,
+            index,
+            keys,
+            items,
+            maxItems,
+            averageKeySize,
+            averageItemSize,
+            keyEncoding
+        } = serialized
+
+        return new SharedHashMap(maxItems, averageKeySize, averageItemSize, keyEncoding, {
+            map: SharedLinkedList.deserialize(map),
+            index: SharedMap.deserialize(index),
+            keys: SharedByteArray.deserialize(keys),
+            items: SharedByteArray.deserialize(items)
+        })
+    }
+
     _getExistingKeyPos(key, hash) {
         return this.map.fetch(hash).find(potential => this.keys.get(potential).equals(key));
     }

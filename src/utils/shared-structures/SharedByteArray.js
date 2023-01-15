@@ -99,6 +99,39 @@ class SharedByteArray {
         return (new Array(this.length)).fill(null).map((el, i) => this.get(i).toString()).toString()
     }
 
+    static serialize(sharedByteArray) {
+        return {
+            dataBuffer: sharedByteArray.buffer,
+            indexBuffer: SharedMap.serialize(sharedByteArray.index),
+            lengthsBuffer: SharedMap.serialize(sharedByteArray.lengths),
+            headsIndexesBuffer: SharedMap.serialize(sharedByteArray.headsIndexesBuffer),
+            maxItems: sharedByteArray.maxItems,
+            averageBytesPerItem: sharedByteArray.averageBytesPerItem
+        }
+    }
+
+    static deserialize(serialized) {
+        const {
+            maxItems,
+            averageBytesPerItem,
+            dataBuffer,
+            indexBuffer,
+            lengthsBuffer,
+            headsIndexesBuffer,
+        } = serialized;
+
+        const sharedByteArray = new SharedByteArray(maxItems, averageBytesPerItem, {
+            dataBuffer,
+            indexBuffer: SharedMap.deserialize(indexBuffer),
+            lengthsBuffer: SharedMap.deserialize(lengthsBuffer),
+            headsIndexesBuffer: SharedMap.deserialize(headsIndexesBuffer),
+        })
+
+        sharedByteArray.hydrate();
+
+        return sharedByteArray;
+    }
+
     _getFreeSpace() {
         return this.buffer.byteLength - this.headsIndexesBuffer.get(1);
     }

@@ -75,6 +75,19 @@ class SharedLinkedList {
         return `head: [${this.head.toString()}] index: [${this.index.toString()}] links: [${this.links.toString()}] data: [${this.data.toString()}]`;
     }
 
+    static serialize(sharedLinkedList) {
+        return {
+            buffer: sharedLinkedList.buffer,
+            size: sharedLinkedList.size,
+        }
+    }
+
+    static deserialize(serialized) {
+        return new SharedLinkedList(serialized.size, {
+            buffer: serialized.buffer
+        })
+    }
+
     _isValidKey(key) {
         return this.index[key] !== undefined;
     }

@@ -33,6 +33,19 @@ class SharedInvertedIndex {
         return this.sharedHashMap.tryGet(value);
     }
 
+    static serialize(sharedInvertedIndex) {
+        return {
+            sharedHashMap: SharedHashMap.serialize(sharedInvertedIndex.sharedHashMap),
+            totalRowsCount: sharedInvertedIndex.totalRowsCount
+        }
+    }
+
+    static deserialize(serialized) {
+        return new SharedInvertedIndex(serialized.totalRowsCount, {
+            sharedHashMap: SharedHashMap.deserialize(serialized.sharedHashMap)
+        })
+    }
+
     toString() {
         return this.sharedHashMap.toString();
     }
