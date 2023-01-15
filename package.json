@@ -1,0 +1,9 @@
+{
+  "name": "inverted-index",
+  "version": "1.0.0",
+  "main": "src/index-engine.js",
+  "license": "MIT",
+  "dependencies": {
+    "murmurhash": "^2.0.1"
+  }
+}
