@@ -2,6 +2,7 @@ const worker_threads = require("worker_threads");
 const fs = require("fs");
 const path = require("path");
 const SharedInvertedIndex = require("../utils/shared-structures/SharedInvertedIndex");
+const ENGINE_OPERATIONS = require("../constants/engine-operations");
 
 const EVALUATING_WORKER_FILENAME = 'evaluating-worker.js';
 const INDEXING_WORKER_FILENAME = 'indexing-worker.js';
@@ -18,7 +19,7 @@ function evaluate(dirname, threads, engineEmitter) {
             })
 
             worker.on("message", (data) => {
-                engineEmitter.emit("workerFinishedEvaluating", {
+                engineEmitter.emit(ENGINE_OPERATIONS.WORKER_FINISHED_EVALUATING, {
                     ...data,
                     filesPortion: portion
                 })

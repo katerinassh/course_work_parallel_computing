@@ -74,7 +74,7 @@ class SharedHashMap {
 
             keyPos = this._getNewKeyPos(keyBuffer, hash);
         } else {
-            this.items.delete(this.index.get(keyPos));
+            // this.items.delete(this.index.get(keyPos));
         }
 
         itemPos = this.items.push(item);

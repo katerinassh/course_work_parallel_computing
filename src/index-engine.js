@@ -3,53 +3,96 @@ const EventEmitter = require('events');
 const { PROCESSING_STATUSES } = require("./constants/statuses");
 const { evaluate, buildIndex } = require("./workers/worker-initiators");
 const SharedInvertedIndex = require("./utils/shared-structures/SharedInvertedIndex");
+const ENGINE_OPERATIONS = require("./constants/engine-operations");
 
-function initEngine(threads) {
-    const dataDirname = path.join(__dirname, "../common");
+DATA_DIRNAME = path.join(__dirname, "../common");
 
-    const engineEmitter = new EventEmitter();
-    let engineStatus = PROCESSING_STATUSES.INITIALIZED;
+class IndexEngine {
+    engineEmitter;
+    status = PROCESSING_STATUSES.NOT_INITIALIZED;
+    invertedIndex;
 
-    let handledThreadsCount = 0;
-    let totalRowsCount = 0;
-    const filesPortions = (new Array(threads)).fill(null);
+    _threadsCount = 2;
+    _handledThreadsCount = 0;
+    _totalRowsCount = 0;
+    _filesPortions;
+    _statusListeners = [];
 
-    engineEmitter.on("startEvaluation", () => {
-        engineEmitter.emit("changeEngineStatus", PROCESSING_STATUSES.EVALUATING)
+    constructor(threadsCount, statusListeners) {
+        this._threadsCount = threadsCount;
+        this.engineEmitter = new EventEmitter();
+        this._filesPortions = (new Array(this._threadsCount)).fill(null);
+        this._statusListeners = statusListeners;
 
-        evaluate(dataDirname, threads, engineEmitter);
-    })
+        this._registerEngineEvents();
+        this._updateEngineStatus(PROCESSING_STATUSES.INITIALIZED);
+    }
 
-    engineEmitter.on("workerFinishedEvaluating", ({ total, threadId: workerId, filesPortion }) => {
-        totalRowsCount += total;
-        handledThreadsCount++;
+    buildIndex() {
+        this.engineEmitter.emit(ENGINE_OPERATIONS.START_EVALUATION);
+    }
 
-        filesPortions[workerId - 1] = filesPortion;
+    getWordIndex(word) {
+        return this.invertedIndex.getIndex(word);
+    }
 
-        // All workers finished evaluation
-        if (handledThreadsCount === threads) {
-            engineEmitter.emit("startIndexing")
-        }
-    })
+    registerEngineStatusListener(listener) {
+        this._statusListeners.push(listener);
+    }
 
-    engineEmitter.on("startIndexing", () => {
-        engineEmitter.emit("changeEngineStatus", PROCESSING_STATUSES.INDEXING)
+    _startIndexing() {
+        this.engineEmitter.emit(ENGINE_OPERATIONS.START_INDEXING);
+    }
 
-        buildIndex(dataDirname, threads, totalRowsCount, filesPortions, engineEmitter);
-    })
+    _updateEngineStatus(status) {
+        console.log('status', status);
+        this.engineEmitter.emit(ENGINE_OPERATIONS.CHANGE_ENGINE_STATUS, status);
+    }
 
-    engineEmitter.on("workerFinishedIndexing", (invertedIndex) => {
-        // TODO replace with context propagator
-        const sharedInvertedIndex = SharedInvertedIndex.deserialize(invertedIndex);
+    _registerEngineEvents() {
+        this.engineEmitter.on(ENGINE_OPERATIONS.START_EVALUATION, () => {
+            this._updateEngineStatus(PROCESSING_STATUSES.EVALUATING);
 
-        // writeOutput(sharedInvertedIndex.toString());
-    })
+            evaluate(DATA_DIRNAME, this._threadsCount, this.engineEmitter);
+        })
 
-    engineEmitter.on("changeEngineStatus", (status) => {
-        engineStatus = status;
-    })
+        this.engineEmitter.on(ENGINE_OPERATIONS.WORKER_FINISHED_EVALUATING, ({ total, threadId: workerId, filesPortion }) => {
+            this._totalRowsCount += total;
+            this._handledThreadsCount++;
 
-    engineEmitter.emit("startEvaluation");
+            this._filesPortions[workerId - 1] = filesPortion;
+
+            // All workers finished evaluation
+            if (this._handledThreadsCount === this._threadsCount) {
+                this._startIndexing();
+                this._handledThreadsCount = 0;
+            }
+        })
+
+        this.engineEmitter.on(ENGINE_OPERATIONS.START_INDEXING, () => {
+            this._updateEngineStatus(PROCESSING_STATUSES.INDEXING);
+
+            buildIndex(DATA_DIRNAME, this._threadsCount, this._totalRowsCount, this._filesPortions, this.engineEmitter);
+        })
+
+        this.engineEmitter.on(ENGINE_OPERATIONS.WORKER_FINISHED_INDEXING, (invertedIndex) => {
+            this.invertedIndex = SharedInvertedIndex.deserialize(invertedIndex);
+
+            this._handledThreadsCount++;
+
+            if (this._handledThreadsCount === this._threadsCount) {
+                this._updateEngineStatus(PROCESSING_STATUSES.PROCESSED);
+            }
+        })
+
+        this.engineEmitter.on(ENGINE_OPERATIONS.CHANGE_ENGINE_STATUS, (status) => {
+            this.status = status;
+
+            this._statusListeners.forEach((listener) => {
+                listener(status);
+            })
+        })
+    }
 }
 
-module.exports = initEngine;
+module.exports = IndexEngine;
